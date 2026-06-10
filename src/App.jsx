@@ -1,14 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
-import { Type, Target, Settings, ArrowLeft } from 'lucide-react';
+import { Target, Settings, ArrowLeft } from 'lucide-react';
 import Navbar from './components/Navbar';
 import LetterSelector from './components/LetterSelector';
 import VirtualKeyboard from './components/VirtualKeyboard';
 import TypingEngine from './components/TypingEngine';
 import Analytics from './components/Analytics';
 import { generatePassage } from './utils/generator';
-import { LayoutDashboard } from 'lucide-react';
 
 gsap.registerPlugin(useGSAP);
 
