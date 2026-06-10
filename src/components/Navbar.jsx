@@ -1,7 +1,7 @@
 import React from 'react';
 import { Sun, Moon, Keyboard, Settings, Volume2, VolumeX } from 'lucide-react';
 
-export default function Navbar({ theme, setTheme, currentView, setView, soundEnabled, setSoundEnabled }) {
+export default function Navbar({ theme, setTheme, currentView, setView, soundVolume, setSoundVolume }) {
   const toggleTheme = () => {
     setTheme(theme === 'light' ? 'dark' : 'light');
   };
@@ -32,10 +32,20 @@ export default function Navbar({ theme, setTheme, currentView, setView, soundEna
           </button>
         </div>
 
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button className="theme-toggle" onClick={() => setSoundEnabled(!soundEnabled)} aria-label="Toggle Sound">
-            {soundEnabled ? <Volume2 size={20} /> : <VolumeX size={20} />}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <button className="theme-toggle" onClick={() => setSoundVolume(soundVolume === 0 ? 0.8 : 0)} aria-label="Toggle Sound">
+            {soundVolume > 0 ? <Volume2 size={20} /> : <VolumeX size={20} />}
           </button>
+          <input 
+            type="range" 
+            min="0" 
+            max="1" 
+            step="0.1" 
+            value={soundVolume} 
+            onChange={(e) => setSoundVolume(Number(e.target.value))}
+            style={{ width: '60px', accentColor: 'var(--accent)', cursor: 'pointer' }}
+            aria-label="Volume"
+          />
           <button className="theme-toggle" onClick={toggleTheme} aria-label="Toggle Theme">
             {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
           </button>

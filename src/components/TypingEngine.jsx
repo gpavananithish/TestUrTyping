@@ -3,8 +3,9 @@ import gsap from 'gsap';
 import { Type, Play, Clock } from 'lucide-react';
 
 // Simple sound utility
-const playSound = (type) => {
+const playSound = (type, volume) => {
   try {
+    if (volume <= 0) return;
     const AudioContext = window.AudioContext || window.webkitAudioContext;
     if (!AudioContext) return;
     const ctx = new AudioContext();
@@ -14,20 +15,23 @@ const playSound = (type) => {
     osc.connect(gainNode);
     gainNode.connect(ctx.destination);
     
+    const maxGain = 2.0; // Increased base loudness further
+    const targetGain = maxGain * volume;
+    
     if (type === 'correct') {
       osc.type = 'sine';
       osc.frequency.setValueAtTime(800, ctx.currentTime);
       osc.frequency.exponentialRampToValueAtTime(1200, ctx.currentTime + 0.05);
-      gainNode.gain.setValueAtTime(0.5, ctx.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.05, ctx.currentTime + 0.1);
+      gainNode.gain.setValueAtTime(targetGain, ctx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(targetGain * 0.1, ctx.currentTime + 0.1);
       osc.start();
       osc.stop(ctx.currentTime + 0.1);
     } else if (type === 'incorrect') {
       osc.type = 'sawtooth';
       osc.frequency.setValueAtTime(150, ctx.currentTime);
       osc.frequency.exponentialRampToValueAtTime(100, ctx.currentTime + 0.1);
-      gainNode.gain.setValueAtTime(0.5, ctx.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.05, ctx.currentTime + 0.2);
+      gainNode.gain.setValueAtTime(targetGain, ctx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(targetGain * 0.1, ctx.currentTime + 0.2);
       osc.start();
       osc.stop(ctx.currentTime + 0.2);
     }
@@ -36,7 +40,7 @@ const playSound = (type) => {
   }
 };
 
-export default function TypingEngine({ passage, onFinish, activeKeyHandler, onProgress, soundEnabled }) {
+export default function TypingEngine({ passage, onFinish, activeKeyHandler, onProgress, soundVolume }) {
   const [inputState, setInputState] = useState([]);
   const [startTime, setStartTime] = useState(null);
   const [elapsedTime, setElapsedTime] = useState(0);
@@ -136,9 +140,9 @@ export default function TypingEngine({ passage, onFinish, activeKeyHandler, onPr
       setInputState(newState);
       
       if (isCorrect) {
-        if (soundEnabled !== false) playSound('correct');
+        playSound('correct', soundVolume);
       } else {
-        if (soundEnabled !== false) playSound('incorrect');
+        playSound('incorrect', soundVolume);
         if (containerRef.current) {
           gsap.fromTo(containerRef.current, 
             { x: -5 },

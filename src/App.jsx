@@ -13,7 +13,10 @@ gsap.registerPlugin(useGSAP);
 
 export default function App() {
   const [theme, setTheme] = useState(() => localStorage.getItem('tut_theme') || 'light');
-  const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem('tut_sound') !== 'false');
+  const [soundVolume, setSoundVolume] = useState(() => {
+    const saved = localStorage.getItem('tut_volume');
+    return saved !== null ? Number(saved) : 0.8;
+  });
   const [view, setView] = useState(() => localStorage.getItem('tut_view') || 'setup');
   const [selectedLetters, setSelectedLetters] = useState(() => {
     const saved = localStorage.getItem('tut_letters');
@@ -50,8 +53,8 @@ export default function App() {
     localStorage.setItem('tut_passage', passage);
     localStorage.setItem('tut_stats', JSON.stringify(stats));
     localStorage.setItem('tut_history', JSON.stringify(history));
-    localStorage.setItem('tut_sound', soundEnabled);
-  }, [theme, view, selectedLetters, useCaps, useNumbers, usePunctuation, lengthConfig, passage, stats, history, soundEnabled]);
+    localStorage.setItem('tut_volume', soundVolume);
+  }, [theme, view, selectedLetters, useCaps, useNumbers, usePunctuation, lengthConfig, passage, stats, history, soundVolume]);
 
   useEffect(() => {
     if (theme === 'dark') document.documentElement.classList.add('dark');
@@ -104,7 +107,7 @@ export default function App() {
 
   return (
     <>
-      <Navbar theme={theme} setTheme={setTheme} currentView={view} setView={setView} soundEnabled={soundEnabled} setSoundEnabled={setSoundEnabled} />
+      <Navbar theme={theme} setTheme={setTheme} currentView={view} setView={setView} soundVolume={soundVolume} setSoundVolume={setSoundVolume} />
       <div className="dashboard-container" ref={containerRef}>
         {view === 'setup' ? (
           <div className="setup-container">
@@ -192,7 +195,7 @@ export default function App() {
                     onFinish={handleFinish} 
                     onProgress={handleProgress}
                     activeKeyHandler={setActiveKey}
-                    soundEnabled={soundEnabled}
+                    soundVolume={soundVolume}
                     key={passage} 
                   />
                 </div>
