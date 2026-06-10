@@ -1,7 +1,7 @@
 import React from 'react';
-import { Sun, Moon, Keyboard, Settings, Type } from 'lucide-react';
+import { Sun, Moon, Keyboard, Settings, Volume2, VolumeX } from 'lucide-react';
 
-export default function Navbar({ theme, setTheme, currentView, setView }) {
+export default function Navbar({ theme, setTheme, currentView, setView, soundEnabled, setSoundEnabled }) {
   const toggleTheme = () => {
     setTheme(theme === 'light' ? 'dark' : 'light');
   };
@@ -32,9 +32,14 @@ export default function Navbar({ theme, setTheme, currentView, setView }) {
           </button>
         </div>
 
-        <button className="theme-toggle" onClick={toggleTheme} aria-label="Toggle Theme">
-          {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
-        </button>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button className="theme-toggle" onClick={() => setSoundEnabled(!soundEnabled)} aria-label="Toggle Sound">
+            {soundEnabled ? <Volume2 size={20} /> : <VolumeX size={20} />}
+          </button>
+          <button className="theme-toggle" onClick={toggleTheme} aria-label="Toggle Theme">
+            {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
+          </button>
+        </div>
       </div>
     </nav>
   );

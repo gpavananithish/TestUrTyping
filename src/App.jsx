@@ -13,6 +13,7 @@ gsap.registerPlugin(useGSAP);
 
 export default function App() {
   const [theme, setTheme] = useState(() => localStorage.getItem('tut_theme') || 'light');
+  const [soundEnabled, setSoundEnabled] = useState(() => localStorage.getItem('tut_sound') !== 'false');
   const [view, setView] = useState(() => localStorage.getItem('tut_view') || 'setup');
   const [selectedLetters, setSelectedLetters] = useState(() => {
     const saved = localStorage.getItem('tut_letters');
@@ -49,7 +50,8 @@ export default function App() {
     localStorage.setItem('tut_passage', passage);
     localStorage.setItem('tut_stats', JSON.stringify(stats));
     localStorage.setItem('tut_history', JSON.stringify(history));
-  }, [theme, view, selectedLetters, useCaps, useNumbers, usePunctuation, lengthConfig, passage, stats, history]);
+    localStorage.setItem('tut_sound', soundEnabled);
+  }, [theme, view, selectedLetters, useCaps, useNumbers, usePunctuation, lengthConfig, passage, stats, history, soundEnabled]);
 
   useEffect(() => {
     if (theme === 'dark') document.documentElement.classList.add('dark');
@@ -102,7 +104,7 @@ export default function App() {
 
   return (
     <>
-      <Navbar theme={theme} setTheme={setTheme} currentView={view} setView={setView} />
+      <Navbar theme={theme} setTheme={setTheme} currentView={view} setView={setView} soundEnabled={soundEnabled} setSoundEnabled={setSoundEnabled} />
       <div className="dashboard-container" ref={containerRef}>
         {view === 'setup' ? (
           <div className="setup-container">
@@ -190,6 +192,7 @@ export default function App() {
                     onFinish={handleFinish} 
                     onProgress={handleProgress}
                     activeKeyHandler={setActiveKey}
+                    soundEnabled={soundEnabled}
                     key={passage} 
                   />
                 </div>
