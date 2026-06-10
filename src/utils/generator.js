@@ -22,15 +22,15 @@ export function generatePassage(selectedLetters, wordCount = 30, options = { use
 
   for (let i = 0; i < wordCount; i++) {
     let word = "";
-    // If the pool of valid words is very small, occasionally inject a random 
-    // pseudo-word from selected letters to prevent extreme repetition
-    const injectRandom = wordsToUse && wordsToUse.length < 10 && Math.random() > 0.4;
+    // Inject random pseudo-words from selected letters frequently to prevent repetition
+    // and provide better practice for the selected keys.
+    const injectRandom = !wordsToUse || Math.random() > 0.4;
 
     if (wordsToUse && !injectRandom) {
       word = wordsToUse[Math.floor(Math.random() * wordsToUse.length)].toLowerCase();
     } else {
       const lettersArray = Array.from(selectedLetters);
-      const len = Math.floor(Math.random() * 4) + 2;
+      const len = Math.floor(Math.random() * 4) + 3; // Length between 3 and 6
       for(let j = 0; j < len; j++) {
         word += lettersArray[Math.floor(Math.random() * lettersArray.length)];
       }
