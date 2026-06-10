@@ -107,6 +107,14 @@ export default function App() {
 
   return (
     <>
+      <div className="mobile-warning">
+        <h2 className="neon-text-orange" style={{fontSize: '2rem', marginBottom: '1rem'}}>⚠️ Orientation Warning</h2>
+        <p style={{fontSize: '1.2rem', lineHeight: '1.5', color: 'var(--dim)'}}>
+          Please rotate your device to landscape mode or switch to a desktop browser. 
+          <br/><br/>
+          This application requires a physical keyboard for the best experience and cannot be used effectively in portrait mobile mode.
+        </p>
+      </div>
       <Navbar theme={theme} setTheme={setTheme} currentView={view} setView={setView} soundVolume={soundVolume} setSoundVolume={setSoundVolume} />
       <div className="dashboard-container" ref={containerRef}>
         {view === 'setup' ? (
