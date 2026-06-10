@@ -945,3 +945,78 @@ body {
 .range-slider::-webkit-slider-thumb:hover {
   transform: scale(1.1);
 }
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .navbar-content {
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1rem;
+  }
+  
+  .dashboard-container {
+    padding: 1rem;
+  }
+
+  .header-title h1 {
+    font-size: 1.5rem;
+  }
+
+  .nav-links {
+    flex-wrap: wrap;
+    justify-content: center;
+    width: 100%;
+  }
+
+  .keyboard-overlay {
+    overflow-x: auto;
+    padding: 0.5rem;
+  }
+
+  .keyboard {
+    transform: rotateX(10deg) scale(0.6);
+    transform-origin: top center;
+    padding: 1rem;
+    margin-bottom: -150px; /* Offset the scale down space */
+  }
+
+  .keyboard-row {
+    flex-wrap: wrap;
+  }
+  
+  .compact-key {
+    min-width: 2rem;
+    height: 2rem;
+    font-size: 0.8rem;
+  }
+
+  .typing-container {
+    font-size: 1.2rem;
+    padding: 1rem;
+  }
+
+  .stat-box {
+    min-width: 120px;
+    padding: 1rem;
+  }
+  
+  .stat-value {
+    font-size: 2rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .keyboard {
+    transform: rotateX(10deg) scale(0.45);
+    margin-bottom: -200px;
+  }
+  
+  .typing-container {
+    font-size: 1rem;
+  }
+  
+  .btn-primary.massive {
+    padding: 1rem 1.5rem;
+    font-size: 1rem;
+  }
+}
