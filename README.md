@@ -2,7 +2,7 @@
 
 A modern, dynamic, and interactive typing test web application built with React to help users improve their typing speed, accuracy, and efficiency.
 
-🚀 **Live Demo:** [https://tut.vercel.app](https://tut.vercel.app)
+🚀 **Live Demo:** [https://testurtyping.vercel.app](https://testurtyping.vercel.app)
 
 ## Features
 
@@ -59,7 +59,7 @@ This application is configured and ready to be hosted on **Vercel**.
 2. Go to your [Vercel Dashboard](https://vercel.com/dashboard).
 3. Import your GitHub repository.
 4. Vercel will automatically detect that it's a Vite project and deploy it.
-5. Set your custom domain to `tut.vercel.app` in the Vercel project settings.
+5. Set your custom domain to `testurtyping.vercel.app` in the Vercel project settings.
 
 ---
 *Happy Typing!* 🚀
