@@ -125,8 +125,12 @@ export default function Footer({ setView }) {
         </div>
       </div>
 
-      <div className="footer-bottom">
+      <div className="footer-bottom" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'center' }}>
         <p>&copy; {new Date().getFullYear()} TestUrTyping. Designed with visual excellence and precision.</p>
+        <div style={{ display: 'flex', gap: '1.5rem', fontSize: '0.8rem', marginTop: '0.25rem' }}>
+          <span style={{ cursor: 'pointer', color: 'var(--dim)', userSelect: 'none' }} onClick={() => setView('privacy')}>Privacy Policy</span>
+          <span style={{ cursor: 'pointer', color: 'var(--dim)', userSelect: 'none' }} onClick={() => setView('terms')}>Terms of Service</span>
+        </div>
       </div>
     </footer>
   );

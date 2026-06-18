@@ -14,6 +14,8 @@ import DynamicBackground from './components/DynamicBackground';
 import { generatePassage } from './utils/generator';
 import MilestoneToast from './components/MilestoneToast';
 import { getAchievements } from './utils/achievements';
+import PrivacyPolicy from './components/PrivacyPolicy';
+import TermsOfService from './components/TermsOfService';
 
 gsap.registerPlugin(useGSAP);
 
@@ -442,6 +444,14 @@ export default function App() {
             onTriggerDemoNotification={() => setIsModalOpen(true)}
             setView={setView} 
           />
+        )}
+
+        {view === 'privacy' && (
+          <PrivacyPolicy setView={setView} />
+        )}
+
+        {view === 'terms' && (
+          <TermsOfService setView={setView} />
         )}
       </div>
 
