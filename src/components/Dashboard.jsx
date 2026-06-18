@@ -8,8 +8,15 @@ import {
   Tooltip, 
   ResponsiveContainer, 
   AreaChart, 
-  Area 
+  Area,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  Legend
 } from 'recharts';
+import { getAchievements } from '../utils/achievements';
 
 export default function Dashboard({ 
   history, 
@@ -37,59 +44,31 @@ export default function Dashboard({
   const totalMinutes = Math.floor(overallTimeSpent / 60);
   const totalSeconds = overallTimeSpent % 60;
 
-  // Achievement check list using emojis instead of vector icons for fluffy aesthetic
-  const achievements = [
-    {
-      id: 'first_test',
-      title: 'First Step',
-      description: 'Complete 1 typing practice run',
-      unlocked: totalTests >= 1,
-      emoji: '🐣',
-      color: 'cyan'
-    },
-    {
-      id: 'ten_tests',
-      title: 'Decathlon Typist',
-      description: 'Complete 10 typing practice runs',
-      unlocked: totalTests >= 10,
-      emoji: '🔥',
-      color: 'purple'
-    },
-    {
-      id: 'speed_demon',
-      title: 'Speed Demon',
-      description: 'Achieve a speed of 50 WPM or more',
-      unlocked: peakWpm >= 50,
-      emoji: '⚡',
-      color: 'magenta'
-    },
-    {
-      id: 'sonic',
-      title: 'Sonic Velocity',
-      description: 'Achieve a speed of 80 WPM or more',
-      unlocked: peakWpm >= 80,
-      emoji: '🚀',
-      color: 'magenta'
-    },
-    {
-      id: 'perfect_accuracy',
-      title: 'Flawless Flow',
-      description: 'Hit 100% accuracy on any practice run',
-      unlocked: history.some(item => (item.accuracy ?? 0) === 100),
-      emoji: '🎯',
-      color: 'purple'
-    },
-    {
-      id: 'marathon',
-      title: 'Zen Master',
-      description: 'Accumulate 15 minutes of typing practice',
-      unlocked: overallTimeSpent >= 900,
-      emoji: '🧸',
-      color: 'cyan'
-    }
-  ];
+  const achievements = getAchievements(history, overallTimeSpent, overallWordsTyped);
 
   const unlockedCount = achievements.filter(a => a.unlocked).length;
+
+  // Calculate advanced analytics
+  const totalCorrectHits = history.reduce((sum, run) => sum + (run.correctChars || 0), 0);
+  const totalIncorrectHits = history.reduce((sum, run) => sum + (run.incorrectChars || 0), 0);
+  const totalKeystrokes = totalCorrectHits + totalIncorrectHits;
+  const perfectRuns = history.filter(run => (run.accuracy ?? 0) === 100).length;
+
+  let accuracyGrade = 'C-Tier 🐢';
+  if (averageAccuracy >= 98) accuracyGrade = 'SS-Tier 💎';
+  else if (averageAccuracy >= 95) accuracyGrade = 'S-Tier 🌟';
+  else if (averageAccuracy >= 90) accuracyGrade = 'A-Tier ✨';
+  else if (averageAccuracy >= 80) accuracyGrade = 'B-Tier 🐇';
+
+  const pieData = [
+    { name: 'Correct Hits', value: totalCorrectHits, color: 'var(--correct)' },
+    { name: 'Error Hits', value: totalIncorrectHits, color: 'var(--incorrect)' }
+  ];
+
+  const volumeData = history.map((run, idx) => ({
+    name: run.name || `Run ${idx + 1}`,
+    words: Math.round((run.totalChars || 0) / 5)
+  }));
 
   return (
     <div className="dashboard-view-container">
@@ -152,6 +131,38 @@ export default function Dashboard({
           <span style={{ fontSize: '2.5rem', filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.15))', userSelect: 'none' }}>🎯</span>
         </div>
       </div>
+
+      {/* Supplementary Analytics Strip */}
+      {totalTests > 0 && (
+        <div className="stats-grid-row" style={{ marginTop: '0.8rem' }}>
+          <div className="stat-box card-bg-lime">
+            <div>
+              <span className="section-title neon-text-lime" style={{ margin: 0 }}>Accuracy Grade</span>
+              <span className="stat-meta">Lifetime precision tier</span>
+              <span className="stat-value neon-text-lime" style={{ fontSize: '1.65rem' }}>{accuracyGrade}</span>
+            </div>
+            <span style={{ fontSize: '2.5rem', filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.15))', userSelect: 'none' }}>🏆</span>
+          </div>
+
+          <div className="stat-box card-bg-cyan">
+            <div>
+              <span className="section-title neon-text-cyan" style={{ margin: 0 }}>Perfect Runs</span>
+              <span className="stat-meta">100% accuracy sessions</span>
+              <span className="stat-value neon-text-cyan">{perfectRuns}</span>
+            </div>
+            <span style={{ fontSize: '2.5rem', filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.15))', userSelect: 'none' }}>🎯</span>
+          </div>
+
+          <div className="stat-box card-bg-magenta">
+            <div>
+              <span className="section-title neon-text-magenta" style={{ margin: 0 }}>Total Keystrokes</span>
+              <span className="stat-meta">Lifetime inputs recorded</span>
+              <span className="stat-value neon-text-magenta">{totalKeystrokes}</span>
+            </div>
+            <span style={{ fontSize: '2.5rem', filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.15))', userSelect: 'none' }}>⌨️</span>
+          </div>
+        </div>
+      )}
 
       {/* Chart Section */}
       {totalTests > 0 ? (
@@ -223,6 +234,58 @@ export default function Dashboard({
                     fill="url(#colorAcc)" 
                   />
                 </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          <div className="chart-box">
+            <h2 className="section-title neon-text-lime">
+              <span style={{ marginRight: '0.5rem', userSelect: 'none' }}>🎯</span> Keystroke Distribution
+            </h2>
+            <div style={{ width: '100%', height: 300, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+              <ResponsiveContainer>
+                <PieChart>
+                  <Pie
+                    data={pieData}
+                    cx="50%"
+                    cy="45%"
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={5}
+                    dataKey="value"
+                  >
+                    {pieData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid var(--accent)', backgroundColor: 'var(--bg)', color: 'var(--fg)' }} />
+                  <Legend verticalAlign="bottom" height={36} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          <div className="chart-box">
+            <h2 className="section-title neon-text-orange">
+              <span style={{ marginRight: '0.5rem', userSelect: 'none' }}>📊</span> Words Typed per Run
+            </h2>
+            <div style={{ width: '100%', height: 300 }}>
+              <ResponsiveContainer>
+                <BarChart data={volumeData} margin={{ top: 10, right: 20, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--dimmer)" />
+                  <XAxis dataKey="name" stroke="var(--dim)" fontSize={11} />
+                  <YAxis stroke="var(--dim)" fontSize={11} />
+                  <Tooltip 
+                    contentStyle={{ 
+                      borderRadius: '12px', 
+                      border: '1px solid var(--neon-orange)', 
+                      backgroundColor: 'var(--bg)', 
+                      color: 'var(--neon-orange)',
+                      boxShadow: '0 4px 20px rgba(251, 146, 60, 0.15)'
+                    }} 
+                  />
+                  <Bar dataKey="words" name="Words" fill="var(--neon-orange)" radius={[4, 4, 0, 0]} />
+                </BarChart>
               </ResponsiveContainer>
             </div>
           </div>

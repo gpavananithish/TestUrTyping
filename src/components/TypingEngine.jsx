@@ -57,11 +57,14 @@ export default function TypingEngine({
   isPaused,
   onBack,
   onRestart,
+  lockOnError,
 }) {
   const [inputState, setInputState] = useState([]);
   const [startTime, setStartTime] = useState(null);
   const [elapsedTime, setElapsedTime] = useState(0);
   const [isFocused, setIsFocused] = useState(false);
+  const [currentLetterError, setCurrentLetterError] = useState(false);
+  const [incorrectCount, setIncorrectCount] = useState(0);
   const [cursorPos, setCursorPos] = useState({
     left: 0,
     top: 0,
@@ -69,22 +72,28 @@ export default function TypingEngine({
     opacity: 0,
   });
   const containerRef = useRef(null);
-  const [isVirtualKeyboardEnabled, setIsVirtualKeyboardEnabled] =
-    useState(false);
-  const [isParagraphVisible, setIsParagraphVisible] = useState(true);
   const [pressedKey, setPressedKey] = useState(null);
   const paragraphRef = useRef(null);
-  const keyboardWrapperRef = useRef(null);
 
-  const calculateStats = (currentState, timeMs) => {
+  const calculateStats = (currentState, timeMs, currentIncorrectCount = null) => {
     const timeElapsedMin = timeMs / 60000;
     const words = currentState.length / 5;
     const wpm = timeElapsedMin > 0 ? Math.round(words / timeElapsedMin) : 0;
 
     const correctChars = currentState.filter((v) => v).length;
+    
+    let incorrectChars, totalChars;
+    if (lockOnError && currentIncorrectCount !== null) {
+      incorrectChars = currentIncorrectCount;
+      totalChars = correctChars + incorrectChars;
+    } else {
+      incorrectChars = currentState.length - correctChars;
+      totalChars = currentState.length;
+    }
+
     const accuracy =
-      currentState.length > 0
-        ? Math.round((correctChars / currentState.length) * 100)
+      totalChars > 0
+        ? Math.round((correctChars / totalChars) * 100)
         : 100;
 
     return {
@@ -92,8 +101,8 @@ export default function TypingEngine({
       accuracy,
       timeSpentSeconds: Math.floor(timeMs / 1000),
       correctChars,
-      incorrectChars: currentState.length - correctChars,
-      totalChars: currentState.length,
+      incorrectChars,
+      totalChars,
       inputState: currentState,
     };
   };
@@ -105,7 +114,7 @@ export default function TypingEngine({
         const timeMs = Date.now() - startTime;
         setElapsedTime(Math.floor(timeMs / 1000));
         if (onProgress) {
-          onProgress(calculateStats(inputState, timeMs));
+          onProgress(calculateStats(inputState, timeMs, incorrectCount));
         }
         if (onActiveTick) {
           onActiveTick();
@@ -122,6 +131,8 @@ export default function TypingEngine({
     onProgress,
     inputState,
     isPaused,
+    incorrectCount,
+    lockOnError,
   ]);
 
   useEffect(() => {
@@ -132,6 +143,8 @@ export default function TypingEngine({
     setStartTime(null);
     setElapsedTime(0);
     activeKeyHandler(null);
+    setCurrentLetterError(false);
+    setIncorrectCount(0);
   }, [passage]);
 
   useEffect(() => {
@@ -152,42 +165,7 @@ export default function TypingEngine({
     }
   }, [inputState.length, passage, isFocused]);
 
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        setIsParagraphVisible(entry.isIntersecting);
-      },
-      { root: null, threshold: 0.1 },
-    );
 
-    if (paragraphRef.current) {
-      observer.observe(paragraphRef.current);
-    }
-
-    return () => observer.disconnect();
-  }, []);
-
-  useEffect(() => {
-    if (isVirtualKeyboardEnabled && isParagraphVisible) {
-      gsap.to(keyboardWrapperRef.current, {
-        y: 0,
-        opacity: 1,
-        scale: 1,
-        pointerEvents: "auto",
-        duration: 0.4,
-        ease: "back.out(1.2)",
-      });
-    } else {
-      gsap.to(keyboardWrapperRef.current, {
-        y: 50,
-        opacity: 0,
-        scale: 0.95,
-        pointerEvents: "none",
-        duration: 0.3,
-        ease: "power2.in",
-      });
-    }
-  }, [isVirtualKeyboardEnabled, isParagraphVisible]);
 
   const handleKeyDown = (e) => {
     if (isPaused) return;
@@ -217,7 +195,11 @@ export default function TypingEngine({
 
     if (e.key === "Backspace") {
       activeKeyHandler("backspace");
-      setInputState((prev) => prev.slice(0, -1));
+      if (lockOnError && currentLetterError) {
+        setCurrentLetterError(false);
+      } else {
+        setInputState((prev) => prev.slice(0, -1));
+      }
       return;
     }
 
@@ -233,42 +215,101 @@ export default function TypingEngine({
       if (!targetChar) return;
 
       const isCorrect = e.key === targetChar;
-      const newState = [...inputState, isCorrect];
-      setInputState(newState);
 
-      if (onKeyStroke) {
-        onKeyStroke(isCorrect);
-      }
+      if (lockOnError) {
+        if (isCorrect) {
+          const newState = [...inputState, !currentLetterError];
+          setInputState(newState);
 
-      if (isCorrect) {
-        playSound("correct", soundVolume);
+          if (onKeyStroke) {
+            onKeyStroke(true);
+          }
+
+          playSound("correct", soundVolume);
+          setCurrentLetterError(false);
+
+          if (onProgress) {
+            onProgress(
+              calculateStats(newState, Date.now() - (startTime || Date.now()), incorrectCount),
+            );
+          }
+
+          if (newState.length === passage.length) {
+            onFinish(
+              calculateStats(newState, Date.now() - (startTime || Date.now()), incorrectCount),
+            );
+          }
+        } else {
+          setIncorrectCount((prev) => {
+            const next = prev + 1;
+            if (onKeyStroke) {
+              onKeyStroke(false);
+            }
+            return next;
+          });
+          setCurrentLetterError(true);
+          playSound("incorrect", soundVolume);
+
+          if (containerRef.current) {
+            gsap.fromTo(
+              containerRef.current,
+              { x: -5 },
+              {
+                x: 5,
+                duration: 0.05,
+                yoyo: true,
+                repeat: 3,
+                onComplete: () => gsap.set(containerRef.current, { x: 0 }),
+              },
+            );
+          }
+
+          if (onProgress) {
+            onProgress(
+              calculateStats(inputState, Date.now() - (startTime || Date.now()), incorrectCount + 1),
+            );
+          }
+        }
       } else {
-        playSound("incorrect", soundVolume);
-        if (containerRef.current) {
-          gsap.fromTo(
-            containerRef.current,
-            { x: -5 },
-            {
-              x: 5,
-              duration: 0.05,
-              yoyo: true,
-              repeat: 3,
-              onComplete: () => gsap.set(containerRef.current, { x: 0 }),
-            },
+        const newState = [...inputState, isCorrect];
+        setInputState(newState);
+
+        if (onKeyStroke) {
+          onKeyStroke(isCorrect);
+        }
+
+        const nextIncorrectCount = incorrectCount + (isCorrect ? 0 : 1);
+        if (!isCorrect) {
+          setIncorrectCount((prev) => prev + 1);
+          playSound("incorrect", soundVolume);
+          if (containerRef.current) {
+            gsap.fromTo(
+              containerRef.current,
+              { x: -5 },
+              {
+                x: 5,
+                duration: 0.05,
+                yoyo: true,
+                repeat: 3,
+                onComplete: () => gsap.set(containerRef.current, { x: 0 }),
+              },
+            );
+          }
+        } else {
+          playSound("correct", soundVolume);
+        }
+
+        if (onProgress) {
+          onProgress(
+            calculateStats(newState, Date.now() - (startTime || Date.now()), nextIncorrectCount),
           );
         }
-      }
 
-      if (onProgress) {
-        onProgress(
-          calculateStats(newState, Date.now() - (startTime || Date.now())),
-        );
-      }
-
-      if (newState.length === passage.length) {
-        onFinish(
-          calculateStats(newState, Date.now() - (startTime || Date.now())),
-        );
+        if (newState.length === passage.length) {
+          onFinish(
+            calculateStats(newState, Date.now() - (startTime || Date.now()), nextIncorrectCount),
+          );
+        }
       }
     }
   };
@@ -295,9 +336,16 @@ export default function TypingEngine({
             let className = "letter letter--basic screenBasic-letter";
 
             if (index < inputState.length) {
-              className += inputState[index] ? " correct" : " incorrect";
+              if (lockOnError) {
+                className += " correct";
+              } else {
+                className += inputState[index] ? " correct" : " incorrect";
+              }
             } else if (index === inputState.length) {
               className += " is-active";
+              if (lockOnError && currentLetterError) {
+                className += " incorrect";
+              }
             }
 
             return (
@@ -355,25 +403,6 @@ export default function TypingEngine({
           className="te-toolbar-right"
           style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}
         >
-          <button
-            className="engine-action-btn"
-            onClick={() => setIsVirtualKeyboardEnabled((prev) => !prev)}
-            style={{
-              borderColor: isVirtualKeyboardEnabled
-                ? "var(--accent)"
-                : "transparent",
-              color: isVirtualKeyboardEnabled ? "var(--accent)" : "inherit",
-              padding: "0.2rem 0.5rem",
-              display: "flex",
-              alignItems: "center",
-              background: "rgba(255,255,255,0.05)",
-              borderRadius: "4px",
-              cursor: "pointer",
-            }}
-          >
-            <span style={{ marginRight: "0.2rem" }}>⌨️</span>
-            {isVirtualKeyboardEnabled ? "Disable" : "Enable"} VK
-          </button>
           <span className="te-progress-badge">
             {Math.round(progress)}% Done
           </span>
@@ -387,7 +416,7 @@ export default function TypingEngine({
         ></div>
       </div>
 
-      <div className="typing-wrapper" ref={paragraphRef}>
+      <div className="typing-wrapper">
         <div
           className="typing-container"
           tabIndex="0"
@@ -434,115 +463,7 @@ export default function TypingEngine({
         </div>
       </div>
 
-      {/* Slopy 3D Sticky Keyboard */}
-      <div
-        ref={keyboardWrapperRef}
-        className="virtual-keyboard-wrapper"
-        style={{
-          position: "fixed",
-          bottom: "2rem",
-          left: "50%",
-          zIndex: 1000,
-          transform: "translateX(-50%) perspective(800px) rotateX(25deg)",
-          transformOrigin: "bottom center",
-          transformStyle: "preserve-3d",
-          opacity: 0,
-          pointerEvents: "none",
-        }}
-      >
-        <div
-          className="virtual-keyboard-3d"
-          style={{
-            background: "rgba(15, 9, 31, 0.85)",
-            backdropFilter: "blur(12px)",
-            border: "1px solid var(--neon-cyan, #06b6d4)",
-            padding: "12px",
-            borderRadius: "12px",
-            boxShadow:
-              "0 15px 25px rgba(0, 0, 0, 0.6), 0 8px 0 rgba(6, 182, 212, 0.4), 0 12px 15px rgba(6, 182, 212, 0.2), inset 0 1px 1px rgba(255, 255, 255, 0.1)",
-            transform: "scale(0.85)",
-            display: "flex",
-            flexDirection: "column",
-            gap: "6px",
-          }}
-        >
-          {[
-            ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"],
-            ["a", "s", "d", "f", "g", "h", "j", "k", "l"],
-            ["z", "x", "c", "v", "b", "n", "m"],
-          ].map((row, i) => (
-            <div
-              key={i}
-              style={{ display: "flex", justifyContent: "center", gap: "6px" }}
-            >
-              {row.map((k) => (
-                <span
-                  key={k}
-                  className="key"
-                  style={{
-                    display: "inline-block",
-                    padding: "8px 12px",
-                    margin: "0 3px",
-                    background: "var(--bg, #1a1a1a)",
-                    border:
-                      pressedKey === k
-                        ? "1px solid var(--accent, #06b6d4)"
-                        : "1px solid var(--dimmer, #333)",
-                    borderRadius: "6px",
-                    color:
-                      pressedKey === k
-                        ? "var(--accent, #06b6d4)"
-                        : "var(--dim, #888)",
-                    fontFamily: "var(--font-mono, monospace)",
-                    fontSize: "0.85rem",
-                    boxShadow:
-                      pressedKey === k
-                        ? "0 0 0 transparent"
-                        : "0 3px 0 var(--dimmer, #333)",
-                    transform: pressedKey === k ? "translateY(3px)" : "none",
-                    transition: "all 0.1s ease",
-                    textTransform: "uppercase",
-                  }}
-                >
-                  {k}
-                </span>
-              ))}
-            </div>
-          ))}
-          <div
-            style={{ display: "flex", justifyContent: "center", gap: "6px" }}
-          >
-            <span
-              className="key"
-              style={{
-                display: "inline-block",
-                padding: "8px 120px",
-                margin: "0 3px",
-                background: "var(--bg, #1a1a1a)",
-                border:
-                  pressedKey === " "
-                    ? "1px solid var(--accent, #06b6d4)"
-                    : "1px solid var(--dimmer, #333)",
-                borderRadius: "6px",
-                color:
-                  pressedKey === " "
-                    ? "var(--accent, #06b6d4)"
-                    : "var(--dim, #888)",
-                fontFamily: "var(--font-mono, monospace)",
-                fontSize: "0.85rem",
-                boxShadow:
-                  pressedKey === " "
-                    ? "0 0 0 transparent"
-                    : "0 3px 0 var(--dimmer, #333)",
-                transform: pressedKey === " " ? "translateY(3px)" : "none",
-                transition: "all 0.1s ease",
-              }}
-            >
-              SPACE
-            </span>
-          </div>
-        </div>
-      </div>
+
     </div>
   );
 }

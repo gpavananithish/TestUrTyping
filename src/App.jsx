@@ -12,6 +12,8 @@ import NotificationModal from './components/NotificationModal';
 import Footer from './components/Footer';
 import DynamicBackground from './components/DynamicBackground';
 import { generatePassage } from './utils/generator';
+import MilestoneToast from './components/MilestoneToast';
+import { getAchievements } from './utils/achievements';
 
 gsap.registerPlugin(useGSAP);
 
@@ -30,6 +32,7 @@ export default function App() {
   const [useNumbers, setUseNumbers] = useState(() => localStorage.getItem('tut_nums') === 'true');
   const [usePunctuation, setUsePunctuation] = useState(() => localStorage.getItem('tut_punc') === 'true');
   const [lengthConfig, setLengthConfig] = useState(() => Number(localStorage.getItem('tut_len')) || 25);
+  const [lockOnError, setLockOnError] = useState(() => localStorage.getItem('tut_lock_on_error') === 'true');
   
   const [passage, setPassage] = useState(() => localStorage.getItem('tut_passage') || '');
   const [activeKey, setActiveKey] = useState(null);
@@ -53,6 +56,12 @@ export default function App() {
   const [overallCharsTyped, setOverallCharsTyped] = useState(() => Number(localStorage.getItem('tut_overall_chars_typed')) || 0);
   const [overallWordsTyped, setOverallWordsTyped] = useState(() => Number(localStorage.getItem('tut_overall_words_typed')) || 0);
 
+  const [activeToasts, setActiveToasts] = useState([]);
+  const [unlockedIds, setUnlockedIds] = useState(() => {
+    const saved = localStorage.getItem('tut_unlocked_milestones');
+    return saved ? new Set(JSON.parse(saved)) : new Set([]);
+  });
+
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const containerRef = useRef(null);
@@ -72,7 +81,9 @@ export default function App() {
     localStorage.setItem('tut_overall_time_spent', overallTimeSpent);
     localStorage.setItem('tut_overall_chars_typed', overallCharsTyped);
     localStorage.setItem('tut_overall_words_typed', overallWordsTyped);
-  }, [theme, view, selectedLetters, useCaps, useNumbers, usePunctuation, lengthConfig, passage, stats, history, soundVolume, overallTimeSpent, overallCharsTyped, overallWordsTyped]);
+    localStorage.setItem('tut_lock_on_error', lockOnError);
+    localStorage.setItem('tut_unlocked_milestones', JSON.stringify([...unlockedIds]));
+  }, [theme, view, selectedLetters, useCaps, useNumbers, usePunctuation, lengthConfig, passage, stats, history, soundVolume, overallTimeSpent, overallCharsTyped, overallWordsTyped, lockOnError, unlockedIds]);
 
   useEffect(() => {
     if (theme === 'dark') document.documentElement.classList.add('dark');
@@ -139,22 +150,87 @@ export default function App() {
     setLiveStats(liveResult);
   };
 
+  const playMilestoneSound = () => {
+    try {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContext) return;
+      const ctx = new AudioContext();
+      const osc = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+
+      osc.connect(gainNode);
+      gainNode.connect(ctx.destination);
+
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
+      osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.1); // E5
+      osc.frequency.setValueAtTime(783.99, ctx.currentTime + 0.2); // G5
+      osc.frequency.setValueAtTime(1046.50, ctx.currentTime + 0.3); // C6
+
+      gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.65);
+
+      osc.start();
+      osc.stop(ctx.currentTime + 0.65);
+    } catch (e) {
+      console.error("Audio play failed", e);
+    }
+  };
+
+  const checkAchievements = (currentHistory, currentTimeSpent, currentWordsTyped) => {
+    const list = getAchievements(currentHistory, currentTimeSpent, currentWordsTyped);
+    const newlyUnlocked = [];
+
+    list.forEach((ach) => {
+      if (ach.unlocked && !unlockedIds.has(ach.id)) {
+        newlyUnlocked.push(ach);
+      }
+    });
+
+    if (newlyUnlocked.length > 0) {
+      setUnlockedIds((prev) => {
+        const next = new Set(prev);
+        newlyUnlocked.forEach((ach) => next.add(ach.id));
+        return next;
+      });
+
+      playMilestoneSound();
+
+      setActiveToasts((prev) => [
+        ...prev,
+        ...newlyUnlocked.map((ach) => ({
+          id: `${ach.id}-${Date.now()}`,
+          title: ach.title,
+          description: ach.description,
+          emoji: ach.emoji,
+          color: ach.color,
+          timestamp: Date.now(),
+        })),
+      ]);
+    }
+  };
+
   const handleFinish = (resultStats) => {
     setStats(resultStats);
     setLiveStats(resultStats);
-    setHistory((prev) => [...prev, { name: `Run ${prev.length + 1}`, ...resultStats }]);
+    const updatedHistory = [...history, { name: `Run ${history.length + 1}`, ...resultStats }];
+    setHistory(updatedHistory);
+    checkAchievements(updatedHistory, overallTimeSpent, overallWordsTyped);
   };
 
   const handleActiveTick = () => {
     setSessionTimeSpent((prev) => {
       const next = prev + 1;
-      // Trigger notification modal at multiples of 15 minutes (900 seconds)
       if (next > 0 && next % 900 === 0) {
         setIsModalOpen(true);
       }
       return next;
     });
-    setOverallTimeSpent((prev) => prev + 1);
+    setOverallTimeSpent((prev) => {
+      const next = prev + 1;
+      checkAchievements(history, next, overallWordsTyped);
+      return next;
+    });
   };
 
   const handleKeyStroke = (isCorrect) => {
@@ -183,12 +259,14 @@ export default function App() {
       setSessionTimeSpent(0);
       setSessionWordsTyped(0);
       setSessionCharsTyped(0);
+      setUnlockedIds(new Set([]));
     }
   };
 
   return (
     <>
       <DynamicBackground theme={theme} />
+      <MilestoneToast toasts={activeToasts} setToasts={setActiveToasts} />
       <div className="mobile-warning">
         <h2 className="neon-text-orange" style={{fontSize: '2rem', marginBottom: '1rem'}}>⚠️ Orientation Warning</h2>
         <p style={{fontSize: '1.2rem', lineHeight: '1.5', color: 'var(--dim)'}}>
@@ -270,6 +348,24 @@ export default function App() {
                         </button>
                       </div>
                     </div>
+
+                    <div className="config-group" style={{ marginTop: '1.5rem' }}>
+                      <label>Practice Mode</label>
+                      <div className="btn-group" style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.5rem' }}>
+                        <button 
+                          className={`config-btn ${!lockOnError ? 'active' : ''}`} 
+                          onClick={() => setLockOnError(false)}
+                        >
+                          Standard Mode
+                        </button>
+                        <button 
+                          className={`config-btn ${lockOnError ? 'active' : ''}`} 
+                          onClick={() => setLockOnError(true)}
+                        >
+                          Lock on Error
+                        </button>
+                      </div>
+                    </div>
                   </div>
 
                   <div className="console-launch">
@@ -308,6 +404,7 @@ export default function App() {
                   key={passage}
                   onBack={() => setView('setup')}
                   onRestart={handleStartPractice}
+                  lockOnError={lockOnError}
                 />
               </div>
 
